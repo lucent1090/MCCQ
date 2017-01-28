@@ -85,7 +85,7 @@ int main(int argc, char** argv){
 	init.end = pixels.size();
 	boxes.push(init);
 
-	for(int i=0; i<20; i++)
+	for(int i=0; i<3; i++)
 	{
 		box parent, box1, box2;
 		
