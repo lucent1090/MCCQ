@@ -5,6 +5,5 @@ median cut color quantization
 1. Install C++ with openCV
 2. cmake .
 3. make
-4. ./MCCQ [fileName]
+4. ./MCCQ [input fileName] [output fileName]
 
-output: result.png
