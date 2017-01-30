@@ -16,6 +16,9 @@ struct box {
 	int nPixel, volume, longest_dim;
 
 	bool operator < (const box& b) const {
+		// The priority of the queue can be number of pixels in the box
+		// or the volume of the box.
+		// We use number of pixel here
 		return (nPixel < b.nPixel);
 	}
 };
@@ -32,11 +35,16 @@ void getBoundry(box& b){
 	int mini[3] = {255, 255, 255};
 	int max_num = 0, volume = 0;
 
+	pixel p;
 	for(int i=b.start; i<b.end; i++){
-		for(int j=0; j<3; j++){
-			mini[j] = min(mini[j], pixels.at(i).bgr[j]);
-			maxi[j] = max(maxi[j], pixels.at(i).bgr[j]);
-		}
+		p = pixels.at(i);
+
+		mini[0] = min(mini[0], p.bgr[0]);
+		maxi[0] = max(maxi[0], p.bgr[0]);
+		mini[1] = min(mini[1], p.bgr[1]);
+		maxi[1] = max(maxi[1], p.bgr[1]);
+		mini[2] = min(mini[2], p.bgr[2]);
+		maxi[2] = max(maxi[2], p.bgr[2]);
 	}
 
 	for(int i=0; i<3; i++)
@@ -47,31 +55,42 @@ void getBoundry(box& b){
 			b.longest_dim = i;
 		}
 	}
-	volume = (maxi[0]-mini[0])*(maxi[1]-mini[1])*(maxi[2]-mini[2]);
+	volume = (maxi[0] - mini[0])*(maxi[1] - mini[1])*(maxi[2] - mini[2]);
 	if( volume < 0 ){
 		cout << "ERROR: " << b.start << " to " << b.end << " volume < 0";
 	}
 
 	b.volume = volume;
 	b.nPixel = b.end - b.start;
-// 1. check with simple box, works fine.
-//-----
+
+	//-------------------
+	// test:
+	// check with simple box, works fine.
+	//-------------------
 }
 
 void getNewColor(int* color, const box& b){
 	double sumColor[] = {0.0, 0.0, 0.0};
+
+	pixel p;
 	for(int i=b.start; i<b.end; i++){
-		sumColor[0] += (double)pixels.at(i).bgr[0];
-		sumColor[1] += (double)pixels.at(i).bgr[1];
-		sumColor[2] += (double)pixels.at(i).bgr[2];
+		p = pixels.at(i);
+		sumColor[0] += (double)p.bgr[0];
+		sumColor[1] += (double)p.bgr[1];
+		sumColor[2] += (double)p.bgr[2];
 	}
 	for(int i=0; i<3; i++){
 		sumColor[i] /= b.nPixel;
 		color[i] = (int)sumColor[i];
 	}
-	// cout << "color is " << "[" << color[0] << ", " << color[1] << ", " << color[2] << "]" << endl;
-// 1. check with simple box, works fine.
-//-----
+
+	if((color[0]<=0) && (color[1]<=0) && (color[2]<=0)){
+		cout << "new color from " << b.start << " to " << b.end << " is <= 0" << endl;
+	}
+	//-------------------
+	// test:
+	// check with simple box, works fine.
+	//-------------------
 }
 
 void printPixel(const pixel& p){
@@ -84,6 +103,10 @@ void printPixels(int start, int end){
 }
 
 int main(int argc, char** argv){
+	if( argc != 3 ){
+		cout << "please use command: ./MCCQ [input image] [output name]" << endl;
+	}
+
 	char* filename = argv[1];
 	Mat image = imread(filename, 1);
 	if( ! image.data ){
@@ -104,8 +127,10 @@ int main(int argc, char** argv){
 			pixels.push_back(p);
 		}
 	}
-// 1. pixels.size() == image.size()
-//-----
+	//-------------------
+	// test:
+	// pixels.size() == image.size()
+	//-------------------
 
 	priority_queue<box> boxes;
 
@@ -115,7 +140,7 @@ int main(int argc, char** argv){
 	init.end = pixels.size();
 	boxes.push(init);
 
-	for(int i=0; i<3; i++)
+	for(int i=0; i<50; i++)
 	{
 		box parent, box1, box2;
 		
@@ -125,12 +150,19 @@ int main(int argc, char** argv){
 		// 1. find boundry, get longest dimension
 		getBoundry( parent );
 
+		if( parent.nPixel < 10 ){
+			continue;
+		}
+
 		// 2. find the median
 		sort(pixels.begin()+parent.start, pixels.begin()+parent.end, cmp[parent.longest_dim]);
 		int median_index = (int)((parent.end - parent.start + 1) / 2);
-// 2. since we dont use parent.end, (end-start+1)/2 works better than (start+end)/2
-// 1. cmp finction and sort work fine
-//-----
+		//-------------------
+		// test:
+		// 1. cmp finction and sort work fine
+		// 2. since we dont include parent.end, 
+		//    (end-start+1)/2 works better than (start+end)/2
+		//-------------------	
 
 		// 3. divide into 2 boxes
 		box1.start = parent.start;
@@ -151,7 +183,6 @@ int main(int argc, char** argv){
 	}
 
 	// calculate average color in each box
-	// then draw all average colors
 	int nBox = boxes.size();
 	for(int i=0; i<nBox; i++)
 	{
@@ -167,6 +198,8 @@ int main(int argc, char** argv){
 			}
 		}
 	}
+
+	// then draw the average colors
 	int h = image.size().height, w = image.size().width;
 	Mat result_img(h, w, CV_8UC3, Scalar(0, 0, 0));
 	for(int row=0; row<h; row++){
@@ -176,35 +209,7 @@ int main(int argc, char** argv){
 			}
 		}
 	}
-	imwrite("./img/result1.png", result_img);
-
-
-/* Show result: METHOD 1
-	Mat result_img(50*boxes.size(), 300, CV_8UC3, Scalar(0, 0, 0));
-	int boxSize = boxes.size();
-	for(int bNum=0; bNum<boxSize; bNum++)
-	{
-		box drawBox = boxes.top();
-
-		int color[3] = {0.0, 0.0, 0.0};
-		getNewColor(color, drawBox);
-
-		for(int i=0; i<50; i++){
-			for(int j=0; j<300; j++){
-				result_img.at<Vec3b>(bNum*50+i, j).val[0] = (uchar)color[0];
-				result_img.at<Vec3b>(bNum*50+i, j).val[1] = (uchar)color[1];
-				result_img.at<Vec3b>(bNum*50+i, j).val[2] = (uchar)color[2];
-			}
-		}
-
-		boxes.pop();
-	}
-	imwrite("./img/result.png", result_img);
-	// namedWindow("result", CV_WINDOW_AUTOSIZE);
-	// imshow("result", result_img);
-
-	// waitKey(0);
-*/
+	imwrite(argv[2], result_img);
 
 	return 0;
 }
