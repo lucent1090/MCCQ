@@ -71,10 +71,10 @@ void getBoundry(box& b){
 
 void getNewColor(int* color, const box& b){
 	double sumColor[] = {0.0, 0.0, 0.0};
-
 	pixel p;
 	for(int i=b.start; i<b.end; i++){
 		p = pixels.at(i);
+
 		sumColor[0] += (double)p.bgr[0];
 		sumColor[1] += (double)p.bgr[1];
 		sumColor[2] += (double)p.bgr[2];
@@ -84,9 +84,6 @@ void getNewColor(int* color, const box& b){
 		color[i] = (int)sumColor[i];
 	}
 
-	if((color[0]<=0) && (color[1]<=0) && (color[2]<=0)){
-		cout << "new color from " << b.start << " to " << b.end << " is <= 0" << endl;
-	}
 	//-------------------
 	// test:
 	// check with simple box, works fine.
@@ -113,7 +110,6 @@ int main(int argc, char** argv){
 		cout << "Can't open or find the image" << endl;
 		return -1;
 	}
-
 	for(int i=0; i<image.rows; ++i)
 	{
 		Vec3b* point = image.ptr<Vec3b>(i);
@@ -124,7 +120,9 @@ int main(int argc, char** argv){
 			p.bgr[1] = (int)point[j][1];
 			p.bgr[2] = (int)point[j][2];
 
-			pixels.push_back(p);
+			if( (p.bgr[0]!=0) && (p.bgr[1]!=0) && (p.bgr[2]!=0) ){
+				pixels.push_back(p);
+			}
 		}
 	}
 	//-------------------
@@ -150,10 +148,6 @@ int main(int argc, char** argv){
 		// 1. find boundry, get longest dimension
 		getBoundry( parent );
 
-		if( parent.nPixel < 10 ){
-			continue;
-		}
-
 		// 2. find the median
 		sort(pixels.begin()+parent.start, pixels.begin()+parent.end, cmp[parent.longest_dim]);
 		int median_index = (int)((parent.end - parent.start + 1) / 2);
@@ -163,6 +157,10 @@ int main(int argc, char** argv){
 		// 2. since we dont include parent.end, 
 		//    (end-start+1)/2 works better than (start+end)/2
 		//-------------------	
+
+		if( parent.nPixel < 10 ){
+			continue;
+		}
 
 		// 3. divide into 2 boxes
 		box1.start = parent.start;
@@ -189,7 +187,7 @@ int main(int argc, char** argv){
 		box drawBox = boxes.top();
 		boxes.pop();
 
-		int color[3] = {0.0, 0.0, 0.0};
+		int color[3] = {0, 0, 0};
 		getNewColor(color, drawBox);
 
 		for(int j=0; j<drawBox.nPixel; j++){
@@ -203,10 +201,14 @@ int main(int argc, char** argv){
 	int h = image.size().height, w = image.size().width;
 	Mat result_img(h, w, CV_8UC3, Scalar(0, 0, 0));
 	for(int row=0; row<h; row++){
-		for(int col=0; col<w; col++){
-			for(int k=0; k<3; k++){
-				result_img.at<Vec3b>(row, col).val[k] = (uchar)pixels.at(row*h+col).bgr[k];
+		for(int col=0; col<w; col++)
+		{
+			if( (row*h+col) < pixels.size() ){
+				for(int k=0; k<3; k++){
+					result_img.at<Vec3b>(row, col).val[k] = (uchar)pixels.at(row*h+col).bgr[k];
+				}
 			}
+			
 		}
 	}
 	imwrite(argv[2], result_img);
